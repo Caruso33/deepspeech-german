@@ -1,20 +1,10 @@
-# FROM mozilla_deep_speech:latest
-FROM mds_slurm:latest
+FROM mozilla_deep_speech:latest
+#FROM mds_slurm:latest
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Update pip
-RUN pip3 install --upgrade --no-cache-dir pip
-
-# Install python packages
-RUN pip3 install --no-cache-dir --upgrade \
-    num2words \
-    google-cloud-texttospeech
-
-# Fix error: AttributeError: module 'gast' has no attribute 'Num'
-RUN pip3 install --no-cache-dir gast==0.2.2
-
-RUN apt-get update && apt-get install -y --no-install-recommends file
-RUN apt-get update && apt-get install -y --no-install-recommends zip
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get update && apt-get install -y --no-install-recommends nano file zip
+RUN apt-get update && apt-get install -y --no-install-recommends sox libsox-dev
 
 # Dependencies for noise normalization
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg
@@ -27,6 +17,17 @@ RUN python3 util/taskcluster.py --source tensorflow --artifact convert_graphdef_
 RUN apt-get clean
 RUN rm -rf /var/lib/apt/lists/*
 
+# Update pip
+RUN python3 -m pip install --upgrade pip
+
+# Install python packages
+RUN pip3 install --no-cache-dir --upgrade \
+    num2words \
+    google-cloud-texttospeech
+
+# Fix error: AttributeError: module 'gast' has no attribute 'Num'
+RUN pip3 install --no-cache-dir gast==0.2.2
+
 # Parallel pandas functions
 RUN pip3 install --no-cache-dir pandarallel
 
@@ -36,8 +37,19 @@ RUN pip3 install --upgrade --no-cache-dir setuptools
 # Update pandas version to fix an error
 RUN pip3 install --upgrade --no-cache-dir pandas
 
+# Build kenlm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake libboost-all-dev
+RUN cd /DeepSpeech/native_client/ && rm -r kenlm/ \
+    && git clone --depth 1 https://github.com/kpu/kenlm \
+    && cd kenlm \
+    && mkdir -p build \
+    && cd build \
+    && cmake .. \
+    && make -j 4
+
 # Install audiomate
-RUN pip3 install git+https://github.com/danbmh/audiomate.git@show_progress_and_changed_label
+RUN pip3 install git+https://github.com/danbmh/audiomate.git@new_features
 #RUN pip3 install --no-cache-dir audiomate
 
 COPY . /DeepSpeech/deepspeech-german/
